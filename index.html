@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urlaubs-Manager v7.2 🌴</title>
+    
+    <!-- PWA Verknüpfung -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Leaflet Karten-CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #27ae60; 
+            --edit-color: #f39c12;
+            --delete-color: #e74c3c;
+            --bg: #f4f7f6; 
+            --card-bg: #fff;
+            --text-muted: #555;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; color: #333; }
+        .container { width: 100%; max-width: 800px; background: var(--card-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; box-sizing: border-box; position: relative; }
+        
+        .header-area { display: flex; justify-content: space-between; align-items: center; }
+        .settings-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; color: var(--primary); transition: transform 0.2s; }
+        .settings-btn:hover { transform: rotate(45deg); }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #dcdde1; border-radius: 6px; box-sizing: border-box; background: #fff; font-size: 0.95rem; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1); }
+        
+        button { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s ease; font-size: 0.95rem; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        
+        .btn-add { background: var(--accent); color: white; width: 100%; margin-top: 15px; }
+        .btn-edit-mode { background: var(--edit-color); color: white; width: 100%; margin-top: 15px; }
+        .btn-secondary { background: #3498db; color: white; width: auto; display: inline-block; margin-right: 10px; }
+
+        .map-wrapper { position: relative; width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #e0e0e0; }
+        #map { width: 100%; height: 100%; }
+        .map-toggle-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; border: 1px solid #ccc; width: 40px; height: 40px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: #333; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+        .map-wrapper.maximized { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; border-radius: 0; border: none; }
+
+        .card { border-left: 6px solid var(--primary); padding: 20px; background: #fbfbfc; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px; }
+        .card-content { width: 100%; }
+        
+        .card-actions { display: flex; gap: 10px; border-top: 1px solid #eceff1; padding-top: 12px; margin-top: 4px; }
+        .action-btn { padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; background: #eaeded; color: #47525e; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+        .action-btn:hover { background: #d5dbdb; }
+        .action-btn.edit-btn:hover { background: #fef5e7; color: var(--edit-color); }
+        .action-btn.del-btn:hover { background: #fadbd8; color: var(--delete-color); }
+        
+        .dist-badge { display: inline-block; background: #e1f5fe; color: #0277bd; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; margin-top: 10px; font-weight: bold; border-left: 4px solid #0288d1; }
+
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .card-actions { width: 100%; } .action-btn { flex: 1; justify-content: center; } }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER & COUNTDOWN -->
+    <div class="container header-area">
+        <h1 style="margin:0; font-size: 1.6rem;">Noch <span id="daysCount">--</span> Tage bis Irland! 🇮🇪</h1>
+        <button class="settings-btn" onclick="toggleSettings()" title="Einstellungen">⚙️</button>
+    </div>
+
+    <!-- EINSTELLUNGEN -->
+    <div class="container" id="settingsPanel" style="display: none;">
+        <h3>⚙️ Einstellungen</h3>
+        <button onclick="exportData()" class="btn-secondary">📥 Daten sichern (Export)</button>
+        <input type="file" id="importFile" onchange="importData(event)">
+    </div>
+
+    <!-- REISE-KARTE -->
+    <div class="container">
+        <h3>📍 Reise-Karte</h3>
+        <div class="map-wrapper" id="mapWrapper">
+            <button class="map-toggle-btn" id="mapToggleBtn" onclick="toggleMapSize()">🔍</button>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- LISTE -->
+    <div class="container">
+        <h3>📋 Buchungsliste (chronologisch)</h3>
+        <div id="list"></div>
+        <h3 style="text-align:right; margin-top: 20px; color: var(--primary); font-size: 1.4rem; border-top: 2px solid #eaeded; padding-top: 15px;">Gesamtkosten: <span id="total">0</span> €</h3>
+    </div>
+
+    <!-- FORMULAR -->
+    <div class="container">
+        <h3 id="formTitle">Neue Buchung hinzufügen</h3>
+        <div class="grid">
+            <div><label style="font-weight:600; font-size:0.9rem;">Kategorie:</label>
+                <select id="kat">
+                    <option value="🏨 Unterkunft">Unterkunft</option>
+                    <option value="✈️ Flug">Flug</option>
+                    <option value="🚗 Leihwagen">Leihwagen</option>
+                </select>
+            </div>
+            <div><label style="font-weight:600; font-size:0.9rem;">Ort:</label><input type="text" id="ort" placeholder="Ort eingeben (z.B. Waterfall)"></div>
+            <div><label style="font-weight:600; font-size:0.9rem;">Anreise:</label><input type="date" id="anreise"></div>
+            <div><label style="font-weight:600; font-size:0.9rem;">Abreise:</label><input type="date" id="abreise"></div>
+            <div><label style="font-weight:600; font-size:0.9rem;">Kosten (€):</label><input type="number" id="kosten" placeholder="0" step="any"></div>
+            <div><label style="font-weight:600; font-size:0.9rem;">Storno bis:</label><input type="date" id="storno"></div>
+        </div>
+        <div style="margin-top: 12px;">
+            <label style="font-weight:600; font-size:0.9rem;">Zusätzliche Infos / Notizen:</label>
+            <textarea id="info" rows="3" placeholder="Buchungsnummern, Adressen oder Details..."></textarea>
+        </div>
+        <input type="hidden" id="editId" value="">
+        <button id="submitBtn" class="btn-add" onclick="handleFormSubmit()">Hinzufügen</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const locations = {
+            "dublin": [53.3498, -6.2603], "galway": [53.2707, -9.0568], "cork": [51.8985, -8.4756], 
+            "kerry": [52.1469, -9.5702], "belfast": [54.5973, -5.9301], "limerick": [52.6638, -8.6267],
+            "derry": [55.0067, -7.3183], "sligo": [54.2707, -8.4782], "waterfall": [51.659335, -9.833675],
+            "waterfall, county cork": [51.659335, -9.833675], "m558+pgp": [51.659335, -9.833675]
+        };
+
+        const storageKey = 'urlaubsApp_v3'; 
+        var map = L.map('map').setView([53.4, -7.9], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        var markers = L.featureGroup().addTo(map);
+
+        let bookings = JSON.parse(localStorage.getItem(storageKey)) || [];
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            var R = 6371; 
+            var dLat = (lat2 - lat1) * (Math.PI / 180);
+            var dLon = (lon2 - lon1) * (Math.PI / 180);
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return (R * c).toFixed(1);
+        }
+
+        function handleFormSubmit() {
+            const editId = document.getElementById('editId').value;
+            const ortVal = document.getElementById('ort').value || "Unbekannt";
+            const ortKey = ortVal.toLowerCase().trim();
+            const defaultCoords = [53.4 + (Math.random() * 0.3 - 0.15), -7.9 + (Math.random() * 0.3 - 0.15)];
+            const finalCoords = locations[ortKey] || defaultCoords;
+
+            const b = {
+                kat: document.getElementById('kat').value,
+                ort: ortVal,
+                coords: finalCoords,
+                anreise: document.getElementById('anreise').value,
+                abreise: document.getElementById('abreise').value,
+                kosten: parseFloat(document.getElementById('kosten').value) || 0,
+                storno: document.getElementById('storno').value,
+                info: document.getElementById('info').value
+            };
+
+            if (editId) {
+                bookings = bookings.map(x => x.id == editId ? { ...b, id: x.id, coords: locations[ortKey] || x.coords } : x);
+                document.getElementById('editId').value = "";
+                document.getElementById('submitBtn').className = "btn-add";
+                document.getElementById('submitBtn').innerText = "Hinzufügen";
+                document.getElementById('formTitle').innerText = "Neue Buchung hinzufügen";
+            } else {
+                b.id = Date.now();
+                bookings.push(b);
+            }
+            
+            localStorage.setItem(storageKey, JSON.stringify(bookings));
+            render();
+            clearForm();
+        }
+
+        function render() {
+            bookings.sort((a, b) => {
+                if (!a.anreise) return 1; if (!b.anreise) return -1;
+                return new Date(a.anreise) - new Date(b.anreise);
+            });
+
+            const list = document.getElementById('list');
+            list.innerHTML = '';
+            markers.clearLayers();
+            let sum = 0;
+
+            if (bookings.length === 0) {
+                list.innerHTML = '<p style="text-align:center; color:#999; padding: 20px;">Noch keine Buchungen eingetragen.</p>';
+            }
+
+            bookings.forEach((b, index) => {
+                sum += b.kosten;
+                const label = String.fromCharCode(65 + index);
+                const von = b.anreise ? new Date(b.anreise).toLocaleDateString('de-DE') : '---';
+                const bis = b.abreise ? new Date(b.abreise).toLocaleDateString('de-DE') : '---';
+                const stornoFormat = b.storno ? new Date(b.storno).toLocaleDateString('de-DE') : 'Keins';
+
+                let distHtml = "";
+                if (bookings[index + 1]) {
+                    const nextB = bookings[index + 1];
+                    const km = getDistanceFromLatLonInKm(b.coords[0], b.coords[1], nextB.coords[0], nextB.coords[1]);
+                    distHtml = `<div class="dist-badge">🗺️ Strecke bis ${nextB.ort}: <b>${km} km</b></div>`;
+                }
+
+                list.innerHTML += `<div class="card">
+                    <div class="card-content">
+                        <strong style="font-size:1.15rem; color: var(--primary);">[${label}] ${b.kat || 'Buchung'} in ${b.ort}</strong><br>
+                        <span style="font-size:0.95rem; color: var(--text-muted); display:inline-block; margin: 4px 0;">📅 ${von} bis ${bis}</span><br>
+                        <small style="font-size:0.85rem; color:#7f8c8d;">💰 Kosten: <b style="color:#333;">${b.kosten.toFixed(2)} €</b> | 🛑 Storno bis: ${stornoFormat}</small>
+                        ${distHtml}
+                        ${b.info ? `<div style="margin-top:10px; background:#f0f3f4; padding:10px; border-radius:6px; font-size:0.88rem; color:#34495e; white-space: pre-wrap; border-left: 3px solid #bdc3c7;">ℹ️ ${b.info}</div>` : ''}
+                    </div>
+                    <div class="card-actions">
+                        <button class="action-btn edit-btn" onclick="startEdit(${b.id})">📝 Bearbeiten</button>
+                        <button class="action-btn del-btn" onclick="del(${b.id})">🗑️ Löschen</button>
+                    </div>
+                </div>`;
+
+                const ortKey = b.ort ? b.ort.toLowerCase().trim() : '';
+                const markerCoords = locations[ortKey] || b.coords || [53.4, -7.9];
+                L.marker(markerCoords).addTo(markers).bindPopup(`<b>[${label}] ${b.kat || ''}</b><br>${b.ort}<br>${b.kosten.toFixed(2)} €`);
+            });
+
+            document.getElementById('total').innerText = sum.toFixed(2);
+            if(bookings.length > 0 && markers.getLayers().length > 0) {
+                map.fitBounds(markers.getBounds(), {padding: [40, 40]});
+            } else {
+                map.setView([53.4, -7.9], 7);
+            }
+        }
+
+        function startEdit(id) {
+            const target = bookings.find(x => x.id === id);
+            if (!target) return;
+            document.getElementById('kat').value = target.kat || "🏨 Unterkunft";
+            document.getElementById('ort').value = target.ort;
+            document.getElementById('anreise').value = target.anreise || '';
+            document.getElementById('abreise').value = target.abreise || '';
+            document.getElementById('kosten').value = target.kosten || '';
+            document.getElementById('storno').value = target.storno || '';
+            document.getElementById('info').value = target.info || '';
+            document.getElementById('editId').value = id;
+            document.getElementById('submitBtn').className = "btn-edit-mode";
+            document.getElementById('submitBtn').innerText = "Änderungen speichern";
+            document.getElementById('formTitle').innerText = "📝 Eintrag bearbeiten";
+            document.getElementById('submitBtn').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function del(id) {
+            if (confirm("Möchtest du diesen Eintrag wirklich löschen?")) {
+                bookings = bookings.filter(x => x.id !== id);
+                localStorage.setItem(storageKey, JSON.stringify(bookings));
+                render();
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('ort').value = ''; document.getElementById('anreise').value = '';
+            document.getElementById('abreise').value = ''; document.getElementById('kosten').value = '';
+            document.getElementById('storno').value = ''; document.getElementById('info').value = '';
+        }
+
+        function toggleMapSize() {
+            const wrapper = document.getElementById('mapWrapper');
+            wrapper.classList.toggle('maximized');
+            document.getElementById('mapToggleBtn').innerText = wrapper.classList.contains('maximized') ? "❌" : "🔍";
+            setTimeout(() => { map.invalidateSize(); }, 300);
+        }
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+        function exportData() {
+            const data = localStorage.getItem(storageKey);
+            if(!data || data === "[]") { alert("Keine Daten vorhanden."); return; }
+            const blob = new Blob([data], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'irland_reise_backup.txt';
+            a.click();
+        }
+        function importData(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try { JSON.parse(e.target.result); localStorage.setItem(storageKey, e.target.result); location.reload(); } 
+                catch(err) { alert("Ungültige Datei."); }
+            };
+            reader.readAsText(file);
+        }
+
+        document.getElementById('daysCount').innerText = Math.max(0, Math.ceil((new Date('2026-08-17T00:00:00') - new Date()) / (1000 * 60 * 60 * 24)));
+        render();
+    </script>
+</body>
+</html>
