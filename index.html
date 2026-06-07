@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Urlaubs-Manager v7.2 🌴</title>
+    <title>Urlaubs-Manager v8.6 🌴</title>
     
-    <!-- PWA Verknüpfung -->
     <link rel="manifest" href="manifest.json">
     
-    <!-- Leaflet Karten-CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { 
@@ -16,6 +14,8 @@
             --accent: #27ae60; 
             --edit-color: #f39c12;
             --delete-color: #e74c3c;
+            --link-color: #3498db;
+            --maps-color: #e67e22;
             --bg: #f4f7f6; 
             --card-bg: #fff;
             --text-muted: #555;
@@ -37,7 +37,8 @@
         
         .btn-add { background: var(--accent); color: white; width: 100%; margin-top: 15px; }
         .btn-edit-mode { background: var(--edit-color); color: white; width: 100%; margin-top: 15px; }
-        .btn-secondary { background: #3498db; color: white; width: auto; display: inline-block; margin-right: 10px; }
+        .btn-secondary { background: #3498db; color: white; width: auto; display: inline-block; margin-right: 10px; margin-bottom: 10px; }
+        .btn-print { background: var(--primary); color: white; margin-right: 10px; margin-bottom: 10px; }
 
         .map-wrapper { position: relative; width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #e0e0e0; }
         #map { width: 100%; height: 100%; }
@@ -47,33 +48,78 @@
         .card { border-left: 6px solid var(--primary); padding: 20px; background: #fbfbfc; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px; }
         .card-content { width: 100%; }
         
-        .card-actions { display: flex; gap: 10px; border-top: 1px solid #eceff1; padding-top: 12px; margin-top: 4px; }
-        .action-btn { padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; background: #eaeded; color: #47525e; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+        .card-actions { display: flex; gap: 10px; border-top: 1px solid #eceff1; padding-top: 12px; margin-top: 4px; flex-wrap: wrap; }
+        .action-btn { padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; background: #eaeded; color: #47525e; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .action-btn:hover { background: #d5dbdb; }
         .action-btn.edit-btn:hover { background: #fef5e7; color: var(--edit-color); }
         .action-btn.del-btn:hover { background: #fadbd8; color: var(--delete-color); }
+        .action-btn.link-btn { background: #e8f4fd; color: var(--link-color); }
+        .action-btn.link-btn:hover { background: #d4eafd; }
+        .action-btn.maps-btn { background: #fef5e7; color: var(--maps-color); }
+        .action-btn.maps-btn:hover { background: #fdebd0; }
         
         .dist-badge { display: inline-block; background: #e1f5fe; color: #0277bd; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; margin-top: 10px; font-weight: bold; border-left: 4px solid #0288d1; }
 
-        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .card-actions { width: 100%; } .action-btn { flex: 1; justify-content: center; } }
+        .custom-marker {
+            background: var(--primary);
+            color: white;
+            width: 32px !important;
+            height: 32px !important;
+            margin-left: -16px !important;
+            margin-top: -16px !important;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+
+        /* Print-CSS für PDF-Export */
+        @media print {
+            body { background: white; color: #000; padding: 0; }
+            .container { box-shadow: none; padding: 10px 0; margin-bottom: 10px; max-width: 100%; }
+            
+            #settingsPanel, .map-toggle-btn, .settings-btn, .action-btn.edit-btn, .action-btn.del-btn, 
+            #formTitle, .grid, [style*="margin-top: 12px"], .btn-add, .btn-edit-mode, #submitBtn { 
+                display: none !important; 
+            }
+            
+            .cost-info, #total, h3:has(#total) { 
+                display: none !important; 
+            }
+
+            .map-wrapper { height: 400px; border: 1px solid #333; page-break-inside: avoid; }
+            .card { border: 1px solid #ccc; border-left: 6px solid #2c3e50; background: white; page-break-inside: avoid; }
+            .card-actions { border: none; padding: 0; }
+        }
+
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .card-actions { width: 100%; } .action-btn { flex: 1; justify-content: center; min-width: 120px; } }
     </style>
 </head>
 <body>
 
-    <!-- HEADER & COUNTDOWN -->
     <div class="container header-area">
         <h1 style="margin:0; font-size: 1.6rem;">Noch <span id="daysCount">--</span> Tage bis Irland! 🇮🇪</h1>
-        <button class="settings-btn" onclick="toggleSettings()" title="Einstellungen">⚙️</button>
+        <div>
+            <button class="settings-btn" onclick="toggleSettings()" title="Einstellungen">⚙️</button>
+        </div>
     </div>
 
-    <!-- EINSTELLUNGEN -->
     <div class="container" id="settingsPanel" style="display: none;">
         <h3>⚙️ Einstellungen</h3>
-        <button onclick="exportData()" class="btn-secondary">📥 Daten sichern (Export)</button>
-        <input type="file" id="importFile" onchange="importData(event)">
+        <div style="margin-bottom: 10px;">
+            <button class="btn-print" onclick="window.print()">🖨️ PDF / Drucken</button>
+            <button onclick="exportData()" class="btn-secondary">📥 Daten sichern (Export)</button>
+        </div>
+        <div>
+            <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 5px;">Daten wiederherstellen (Import):</label>
+            <input type="file" id="importFile" onchange="importData(event)" style="margin-top: 0;">
+        </div>
     </div>
 
-    <!-- REISE-KARTE -->
     <div class="container">
         <h3>📍 Reise-Karte</h3>
         <div class="map-wrapper" id="mapWrapper">
@@ -82,15 +128,13 @@
         </div>
     </div>
 
-    <!-- LISTE -->
     <div class="container">
         <h3>📋 Buchungsliste (chronologisch)</h3>
         <div id="list"></div>
         <h3 style="text-align:right; margin-top: 20px; color: var(--primary); font-size: 1.4rem; border-top: 2px solid #eaeded; padding-top: 15px;">Gesamtkosten: <span id="total">0</span> €</h3>
     </div>
 
-    <!-- FORMULAR -->
-    <div class="container">
+    <div class="container" id="inputFormContainer">
         <h3 id="formTitle">Neue Buchung hinzufügen</h3>
         <div class="grid">
             <div><label style="font-weight:600; font-size:0.9rem;">Kategorie:</label>
@@ -106,6 +150,17 @@
             <div><label style="font-weight:600; font-size:0.9rem;">Kosten (€):</label><input type="number" id="kosten" placeholder="0" step="any"></div>
             <div><label style="font-weight:600; font-size:0.9rem;">Storno bis:</label><input type="date" id="storno"></div>
         </div>
+        
+        <div style="margin-top: 12px;">
+            <label style="font-weight:600; font-size:0.9rem;">Google Maps Koordinaten oder Link:</label>
+            <input type="text" id="geoInput" placeholder="Koordinaten (51.659, -9.833) oder Google Maps Link einfügen">
+        </div>
+
+        <div style="margin-top: 12px;">
+            <label style="font-weight:600; font-size:0.9rem;">Website-Link / Buchungs-Link (optional):</label>
+            <input type="url" id="webLink" placeholder="https://www.booking.com/... oder ryanair.com">
+        </div>
+
         <div style="margin-top: 12px;">
             <label style="font-weight:600; font-size:0.9rem;">Zusätzliche Infos / Notizen:</label>
             <textarea id="info" rows="3" placeholder="Buchungsnummern, Adressen oder Details..."></textarea>
@@ -125,7 +180,7 @@
 
         const storageKey = 'urlaubsApp_v3'; 
         var map = L.map('map').setView([53.4, -7.9], 7);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
         var markers = L.featureGroup().addTo(map);
 
         let bookings = JSON.parse(localStorage.getItem(storageKey)) || [];
@@ -139,17 +194,38 @@
             return (R * c).toFixed(1);
         }
 
+        function parseCoordinates(inputStr) {
+            if (!inputStr) return null;
+            const regex = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/;
+            const match = inputStr.match(regex);
+            if (match) { return [parseFloat(match[1]), parseFloat(match[2])]; }
+            return null;
+        }
+
+        function formatUrl(url) {
+            if (!url) return "";
+            let trimmed = url.trim();
+            if (trimmed && !/^https?:\/\//i.test(trimmed)) { return "https://" + trimmed; }
+            return trimmed;
+        }
+
         function handleFormSubmit() {
             const editId = document.getElementById('editId').value;
             const ortVal = document.getElementById('ort').value || "Unbekannt";
             const ortKey = ortVal.toLowerCase().trim();
-            const defaultCoords = [53.4 + (Math.random() * 0.3 - 0.15), -7.9 + (Math.random() * 0.3 - 0.15)];
-            const finalCoords = locations[ortKey] || defaultCoords;
+            const geoVal = document.getElementById('geoInput').value.trim();
+            const webLinkVal = formatUrl(document.getElementById('webLink').value);
+            
+            let finalCoords = null;
+            if (locations[ortKey]) { finalCoords = locations[ortKey]; } else { finalCoords = parseCoordinates(geoVal); }
+            if (!finalCoords) { finalCoords = [53.4 + (Math.random() * 0.3 - 0.15), -7.9 + (Math.random() * 0.3 - 0.15)]; }
 
             const b = {
                 kat: document.getElementById('kat').value,
                 ort: ortVal,
                 coords: finalCoords,
+                geoInput: geoVal, 
+                webLink: webLinkVal,
                 anreise: document.getElementById('anreise').value,
                 abreise: document.getElementById('abreise').value,
                 kosten: parseFloat(document.getElementById('kosten').value) || 0,
@@ -158,7 +234,8 @@
             };
 
             if (editId) {
-                bookings = bookings.map(x => x.id == editId ? { ...b, id: x.id, coords: locations[ortKey] || x.coords } : x);
+                let updatedCoords = locations[ortKey] ? locations[ortKey] : (parseCoordinates(geoVal) || [53.4, -7.9]);
+                bookings = bookings.map(x => x.id == editId ? { ...b, id: x.id, coords: updatedCoords } : x);
                 document.getElementById('editId').value = "";
                 document.getElementById('submitBtn').className = "btn-add";
                 document.getElementById('submitBtn').innerText = "Hinzufügen";
@@ -188,6 +265,8 @@
                 list.innerHTML = '<p style="text-align:center; color:#999; padding: 20px;">Noch keine Buchungen eingetragen.</p>';
             }
 
+            let coordCounts = {};
+
             bookings.forEach((b, index) => {
                 sum += b.kosten;
                 const label = String.fromCharCode(65 + index);
@@ -196,29 +275,60 @@
                 const stornoFormat = b.storno ? new Date(b.storno).toLocaleDateString('de-DE') : 'Keins';
 
                 let distHtml = "";
-                if (bookings[index + 1]) {
-                    const nextB = bookings[index + 1];
-                    const km = getDistanceFromLatLonInKm(b.coords[0], b.coords[1], nextB.coords[0], nextB.coords[1]);
-                    distHtml = `<div class="dist-badge">🗺️ Strecke bis ${nextB.ort}: <b>${km} km</b></div>`;
+                if (b.kat === "🏨 Unterkunft") {
+                    let nextAccommodation = bookings.slice(index + 1).find(x => x.kat === "🏨 Unterkunft");
+                    if (nextAccommodation && b.coords && nextAccommodation.coords) {
+                        const km = getDistanceFromLatLonInKm(b.coords[0], b.coords[1], nextAccommodation.coords[0], nextAccommodation.coords[1]);
+                        distHtml = `<div class="dist-badge">🗺️ Strecke bis zur nächsten Unterkunft (${nextAccommodation.ort}): <b>${km} km</b></div>`;
+                    }
                 }
+
+                let linkButtonHtml = b.webLink ? `<a href="${b.webLink}" target="_blank" class="action-btn link-btn">🌐 Link öffnen</a>` : '';
+                let mapsButtonHtml = (b.geoInput && b.geoInput.startsWith('http')) ? `<a href="${b.geoInput}" target="_blank" class="action-btn maps-btn">🗺️ In Maps öffnen</a>` : '';
 
                 list.innerHTML += `<div class="card">
                     <div class="card-content">
                         <strong style="font-size:1.15rem; color: var(--primary);">[${label}] ${b.kat || 'Buchung'} in ${b.ort}</strong><br>
                         <span style="font-size:0.95rem; color: var(--text-muted); display:inline-block; margin: 4px 0;">📅 ${von} bis ${bis}</span><br>
-                        <small style="font-size:0.85rem; color:#7f8c8d;">💰 Kosten: <b style="color:#333;">${b.kosten.toFixed(2)} €</b> | 🛑 Storno bis: ${stornoFormat}</small>
+                        <small style="font-size:0.85rem; color:#7f8c8d;">
+                            <span class="cost-info">💰 Kosten: <b style="color:#333;">${b.kosten.toFixed(2)} €</b> | </span>
+                            🛑 Storno bis: ${stornoFormat}
+                        </small>
                         ${distHtml}
                         ${b.info ? `<div style="margin-top:10px; background:#f0f3f4; padding:10px; border-radius:6px; font-size:0.88rem; color:#34495e; white-space: pre-wrap; border-left: 3px solid #bdc3c7;">ℹ️ ${b.info}</div>` : ''}
                     </div>
                     <div class="card-actions">
+                        ${mapsButtonHtml}
+                        ${linkButtonHtml}
                         <button class="action-btn edit-btn" onclick="startEdit(${b.id})">📝 Bearbeiten</button>
                         <button class="action-btn del-btn" onclick="del(${b.id})">🗑️ Löschen</button>
                     </div>
                 </div>`;
 
-                const ortKey = b.ort ? b.ort.toLowerCase().trim() : '';
-                const markerCoords = locations[ortKey] || b.coords || [53.4, -7.9];
-                L.marker(markerCoords).addTo(markers).bindPopup(`<b>[${label}] ${b.kat || ''}</b><br>${b.ort}<br>${b.kosten.toFixed(2)} €`);
+                let markerCoords = b.coords ? [...b.coords] : [53.4, -7.9];
+                const coordKey = markerCoords[0].toFixed(4) + "_" + markerCoords[1].toFixed(4);
+
+                if (coordCounts[coordKey]) {
+                    const count = coordCounts[coordKey];
+                    const angle = count * (Math.PI / 4); 
+                    const radius = 0.003; 
+                    markerCoords[0] += Math.sin(angle) * radius;
+                    markerCoords[1] += Math.cos(angle) * radius;
+                    coordCounts[coordKey]++;
+                } else {
+                    coordCounts[coordKey] = 1;
+                }
+
+                let popupContent = `<b>[${label}] ${b.kat || ''}</b><br>${b.ort}`;
+
+                const customIcon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `${label}`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                L.marker(markerCoords, { icon: customIcon }).addTo(markers).bindPopup(popupContent);
             });
 
             document.getElementById('total').innerText = sum.toFixed(2);
@@ -238,6 +348,8 @@
             document.getElementById('abreise').value = target.abreise || '';
             document.getElementById('kosten').value = target.kosten || '';
             document.getElementById('storno').value = target.storno || '';
+            document.getElementById('geoInput').value = target.geoInput || '';
+            document.getElementById('webLink').value = target.webLink || '';
             document.getElementById('info').value = target.info || '';
             document.getElementById('editId').value = id;
             document.getElementById('submitBtn').className = "btn-edit-mode";
@@ -258,6 +370,7 @@
             document.getElementById('ort').value = ''; document.getElementById('anreise').value = '';
             document.getElementById('abreise').value = ''; document.getElementById('kosten').value = '';
             document.getElementById('storno').value = ''; document.getElementById('info').value = '';
+            document.getElementById('geoInput').value = ''; document.getElementById('webLink').value = '';
         }
 
         function toggleMapSize() {
@@ -270,15 +383,28 @@
             const panel = document.getElementById('settingsPanel');
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
+        
+        // KORRIGIERT: Generiert nun dynamisch das Format YYYYMMDD_HHMM für den Dateinamen
         function exportData() {
             const data = localStorage.getItem(storageKey);
             if(!data || data === "[]") { alert("Keine Daten vorhanden."); return; }
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const timestamp = `${year}${month}${day}_${hours}${minutes}`;
+            
             const blob = new Blob([data], {type: 'text/plain'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'irland_reise_backup.txt';
+            a.download = `irland_reise_backup_${timestamp}.txt`;
             a.click();
         }
+        
         function importData(event) {
             const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
