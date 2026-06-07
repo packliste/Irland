@@ -2,11 +2,13 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Urlaubs-Manager v8.6 🌴</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Urlaubs-Manager v9.0 🌴</title>
     
+    <!-- PWA Verknüpfung -->
     <link rel="manifest" href="manifest.json">
     
+    <!-- Leaflet Karten-CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { 
@@ -14,160 +16,191 @@
             --accent: #27ae60; 
             --edit-color: #f39c12;
             --delete-color: #e74c3c;
-            --link-color: #3498db;
+            --link-color: #2980b9;
             --maps-color: #e67e22;
-            --bg: #f4f7f6; 
-            --card-bg: #fff;
-            --text-muted: #555;
+            --bg: #f5f7fa; 
+            --card-bg: #ffffff;
+            --text-muted: #7f8c8d;
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); padding: 20px; display: flex; flex-direction: column; align-items: center; margin: 0; color: #333; }
-        .container { width: 100%; max-width: 800px; background: var(--card-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; box-sizing: border-box; position: relative; }
         
-        .header-area { display: flex; justify-content: space-between; align-items: center; }
-        .settings-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 5px; color: var(--primary); transition: transform 0.2s; }
-        .settings-btn:hover { transform: rotate(45deg); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        input, select, textarea { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #dcdde1; border-radius: 6px; box-sizing: border-box; background: #fff; font-size: 0.95rem; }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1); }
-        
-        button { border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s ease; font-size: 0.95rem; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-        button:active { transform: translateY(0); }
-        
-        .btn-add { background: var(--accent); color: white; width: 100%; margin-top: 15px; }
-        .btn-edit-mode { background: var(--edit-color); color: white; width: 100%; margin-top: 15px; }
-        .btn-secondary { background: #3498db; color: white; width: auto; display: inline-block; margin-right: 10px; margin-bottom: 10px; }
-        .btn-print { background: var(--primary); color: white; margin-right: 10px; margin-bottom: 10px; }
-
-        .map-wrapper { position: relative; width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #e0e0e0; }
-        #map { width: 100%; height: 100%; }
-        .map-toggle-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; border: 1px solid #ccc; width: 40px; height: 40px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); color: #333; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
-        .map-wrapper.maximized { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; border-radius: 0; border: none; }
-
-        .card { border-left: 6px solid var(--primary); padding: 20px; background: #fbfbfc; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px; }
-        .card-content { width: 100%; }
-        
-        .card-actions { display: flex; gap: 10px; border-top: 1px solid #eceff1; padding-top: 12px; margin-top: 4px; flex-wrap: wrap; }
-        .action-btn { padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; background: #eaeded; color: #47525e; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
-        .action-btn:hover { background: #d5dbdb; }
-        .action-btn.edit-btn:hover { background: #fef5e7; color: var(--edit-color); }
-        .action-btn.del-btn:hover { background: #fadbd8; color: var(--delete-color); }
-        .action-btn.link-btn { background: #e8f4fd; color: var(--link-color); }
-        .action-btn.link-btn:hover { background: #d4eafd; }
-        .action-btn.maps-btn { background: #fef5e7; color: var(--maps-color); }
-        .action-btn.maps-btn:hover { background: #fdebd0; }
-        
-        .dist-badge { display: inline-block; background: #e1f5fe; color: #0277bd; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; margin-top: 10px; font-weight: bold; border-left: 4px solid #0288d1; }
-
-        .custom-marker {
-            background: var(--primary);
-            color: white;
-            width: 32px !important;
-            height: 32px !important;
-            margin-left: -16px !important;
-            margin-top: -16px !important;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 14px;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg); 
+            padding: 12px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0; 
+            color: #2c3e50;
+            padding-bottom: 80px; /* Platz für den schwebenden Button */
         }
+        
+        .container { 
+            width: 100%; 
+            max-width: 600px; 
+            background: var(--card-bg); 
+            padding: 16px; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+            margin-bottom: 12px; 
+            position: relative; 
+        }
+        
+        .header-area { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
+        .header-title { margin:0; font-size: 1.3rem; font-weight: 700; }
+        
+        .settings-btn { background: #eef2f5; border: none; font-size: 1.2rem; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+        
+        /* Budget-Leiste */
+        .budget-badge { background: #e8f8f5; color: #117a65; font-weight: bold; padding: 8px 14px; border-radius: 20px; font-size: 0.95rem; border: 1px solid #a3e4d7; display: inline-flex; align-items: center; gap: 5px; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .full-width { grid-column: span 2; }
+        
+        label { font-weight: 600; font-size: 0.85rem; color: #34495e; display: block; margin-top: 6px; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #d5dbdb; border-radius: 8px; background: #fff; font-size: 0.95rem; font-family: inherit; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; background: #fff; }
+        
+        /* Buttons */
+        button { border: none; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        
+        .btn-add { background: var(--accent); color: white; width: 100%; margin-top: 15px; border-radius: 10px; box-shadow: 0 3px 6px rgba(39,174,96,0.2); }
+        .btn-edit-mode { background: var(--edit-color); color: white; width: 100%; margin-top: 15px; border-radius: 10px; }
+        .btn-secondary { background: #eef2f5; color: var(--primary); font-size: 0.85rem; }
+        .btn-print { background: var(--primary); color: white; font-size: 0.85rem; }
+
+        /* Karte */
+        .map-wrapper { position: relative; width: 100%; height: 260px; border-radius: 12px; overflow: hidden; border: 1px solid #e5e8e8; }
+        #map { width: 100%; height: 100%; z-index: 1; }
+        .map-toggle-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; border: null; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); color: #333; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+        .map-wrapper.maximized { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; border-radius: 0; }
+
+        /* Schwebender "Neue Buchung" Button fürs Smartphone */
+        .fab { position: fixed; bottom: 20px; right: 20px; background: var(--primary); color: white; padding: 14px 22px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 999; font-size: 1rem; text-decoration: none; border: none; }
+
+        /* Kompaktes Formular-Panel (Slided rein/aus) */
+        .form-panel { display: none; margin-top: 10px; border-top: 1px solid #eaeded; padding-top: 10px; }
+
+        /* Kompakte Cards */
+        .card { border-left: 5px solid var(--primary); padding: 14px; background: #fdfefe; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 8px; }
+        .card-title-row { display: flex; justify-content: space-between; align-items: flex-start; }
+        
+        /* Mini-Aktionsleiste im Zeilen-Design */
+        .card-actions { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; width: 100%; }
+        .action-btn { padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; background: #f0f3f4; color: #4d5656; font-weight: 600; text-decoration: none; }
+        .action-btn.edit-btn { background: #fef5e7; color: var(--edit-color); }
+        .action-btn.del-btn { background: #fadbd8; color: var(--delete-color); }
+        .action-btn.link-btn { background: #ebf5fb; color: var(--link-color); }
+        .action-btn.maps-btn { background: #fdf2e9; color: var(--maps-color); }
+        
+        .dist-badge { display: block; background: #ebf5fb; color: #2e86c1; padding: 6px 10px; border-radius: 8px; font-size: 0.8rem; margin-top: 4px; font-weight: 600; border-left: 3px solid #3498db; }
+        .note-box { margin-top: 6px; background: #f8f9f9; padding: 8px 10px; border-radius: 6px; font-size: 0.85rem; color: #566573; white-space: pre-wrap; border-left: 3px solid #bdc3c7; }
+
+        /* Marker */
+        .custom-marker { background: var(--primary); color: white; width: 28px !important; height: 28px !important; margin-left: -14px !important; margin-top: -14px !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); border: 2px solid white; }
 
         /* Print-CSS für PDF-Export */
         @media print {
-            body { background: white; color: #000; padding: 0; }
-            .container { box-shadow: none; padding: 10px 0; margin-bottom: 10px; max-width: 100%; }
-            
-            #settingsPanel, .map-toggle-btn, .settings-btn, .action-btn.edit-btn, .action-btn.del-btn, 
-            #formTitle, .grid, [style*="margin-top: 12px"], .btn-add, .btn-edit-mode, #submitBtn { 
-                display: none !important; 
-            }
-            
-            .cost-info, #total, h3:has(#total) { 
-                display: none !important; 
-            }
-
-            .map-wrapper { height: 400px; border: 1px solid #333; page-break-inside: avoid; }
-            .card { border: 1px solid #ccc; border-left: 6px solid #2c3e50; background: white; page-break-inside: avoid; }
-            .card-actions { border: none; padding: 0; }
+            body { background: white; color: #000; padding: 0; padding-bottom: 0; }
+            .container { box-shadow: none; padding: 0; margin-bottom: 10px; max-width: 100%; }
+            #settingsPanel, .map-toggle-btn, .settings-btn, .fab, #inputFormContainer, .action-btn { display: none !important; }
+            .map-wrapper { height: 350px; border: 1px solid #333; page-break-inside: avoid; }
+            .card { border: 1px solid #ccc; border-left: 5px solid #2c3e50; background: white; page-break-inside: avoid; }
         }
 
-        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .card-actions { width: 100%; } .action-btn { flex: 1; justify-content: center; min-width: 120px; } }
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; }
+            .full-width { grid-column: span 1; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- HEADER & COUNTDOWN -->
     <div class="container header-area">
-        <h1 style="margin:0; font-size: 1.6rem;">Noch <span id="daysCount">--</span> Tage bis Irland! 🇮🇪</h1>
         <div>
+            <h1 class="header-title">Irland 🇮🇪 <span style="font-weight:400; font-size:0.95rem; color: var(--text-muted);">in <span id="daysCount">--</span> Tagen</span></h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="budget-badge"><span id="total">0</span> €</div>
             <button class="settings-btn" onclick="toggleSettings()" title="Einstellungen">⚙️</button>
         </div>
     </div>
 
+    <!-- EINSTELLUNGEN -->
     <div class="container" id="settingsPanel" style="display: none;">
-        <h3>⚙️ Einstellungen</h3>
-        <div style="margin-bottom: 10px;">
-            <button class="btn-print" onclick="window.print()">🖨️ PDF / Drucken</button>
-            <button onclick="exportData()" class="btn-secondary">📥 Daten sichern (Export)</button>
+        <h3 style="margin-top:0;">⚙️ Einstellungen</h3>
+        <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn-print" onclick="window.print()">🖨️ PDF drucken</button>
+            <button onclick="exportData()" class="btn-secondary">📥 Backup exportieren</button>
         </div>
         <div>
-            <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 5px;">Daten wiederherstellen (Import):</label>
-            <input type="file" id="importFile" onchange="importData(event)" style="margin-top: 0;">
+            <label>Backup wiederherstellen (Import):</label>
+            <input type="file" id="importFile" onchange="importData(event)">
         </div>
     </div>
 
-    <div class="container">
-        <h3>📍 Reise-Karte</h3>
+    <!-- REISE-KARTE -->
+    <div class="container" style="padding: 10px;">
         <div class="map-wrapper" id="mapWrapper">
             <button class="map-toggle-btn" id="mapToggleBtn" onclick="toggleMapSize()">🔍</button>
             <div id="map"></div>
         </div>
     </div>
 
-    <div class="container">
-        <h3>📋 Buchungsliste (chronologisch)</h3>
-        <div id="list"></div>
-        <h3 style="text-align:right; margin-top: 20px; color: var(--primary); font-size: 1.4rem; border-top: 2px solid #eaeded; padding-top: 15px;">Gesamtkosten: <span id="total">0</span> €</h3>
-    </div>
-
+    <!-- FORMULAR CONTAINER (Standardmäßig eingeklappt fürs Smartphone) -->
     <div class="container" id="inputFormContainer">
-        <h3 id="formTitle">Neue Buchung hinzufügen</h3>
-        <div class="grid">
-            <div><label style="font-weight:600; font-size:0.9rem;">Kategorie:</label>
-                <select id="kat">
-                    <option value="🏨 Unterkunft">Unterkunft</option>
-                    <option value="✈️ Flug">Flug</option>
-                    <option value="🚗 Leihwagen">Leihwagen</option>
-                </select>
-            </div>
-            <div><label style="font-weight:600; font-size:0.9rem;">Ort:</label><input type="text" id="ort" placeholder="Ort eingeben (z.B. Waterfall)"></div>
-            <div><label style="font-weight:600; font-size:0.9rem;">Anreise:</label><input type="date" id="anreise"></div>
-            <div><label style="font-weight:600; font-size:0.9rem;">Abreise:</label><input type="date" id="abreise"></div>
-            <div><label style="font-weight:600; font-size:0.9rem;">Kosten (€):</label><input type="number" id="kosten" placeholder="0" step="any"></div>
-            <div><label style="font-weight:600; font-size:0.9rem;">Storno bis:</label><input type="date" id="storno"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleFormPanel()">
+            <h3 id="formTitle" style="margin:0; font-size:1.1rem;">➕ Neue Buchung / Eintrag</h3>
+            <span id="formChevron" style="font-size: 1.2rem; color: var(--text-muted);">🔽</span>
         </div>
         
-        <div style="margin-top: 12px;">
-            <label style="font-weight:600; font-size:0.9rem;">Google Maps Koordinaten oder Link:</label>
-            <input type="text" id="geoInput" placeholder="Koordinaten (51.659, -9.833) oder Google Maps Link einfügen">
-        </div>
+        <div class="form-panel" id="formPanel">
+            <div class="grid">
+                <div>
+                    <label>Kategorie:</label>
+                    <select id="kat">
+                        <option value="🏨 Unterkunft">Unterkunft</option>
+                        <option value="✈️ Flug">Flug</option>
+                        <option value="🚗 Leihwagen">Leihwagen</option>
+                    </select>
+                </div>
+                <div><label>Ort / Ziel:</label><input type="text" id="ort" placeholder="z.B. Waterfall"></div>
+                <div><label>Anreise / Beginn:</label><input type="date" id="anreise"></div>
+                <div><label>Abreise / Ende:</label><input type="date" id="abreise"></div>
+                <div><label>Kosten (€):</label><input type="number" id="kosten" placeholder="0" step="any"></div>
+                <div><label>Storno kostenfrei bis:</label><input type="date" id="storno"></div>
+                
+                <div class="full-width">
+                    <label>Google Maps Link oder Koordinaten:</label>
+                    <input type="text" id="geoInput" placeholder="Koordinaten oder Maps-Link einfügen">
+                </div>
 
-        <div style="margin-top: 12px;">
-            <label style="font-weight:600; font-size:0.9rem;">Website-Link / Buchungs-Link (optional):</label>
-            <input type="url" id="webLink" placeholder="https://www.booking.com/... oder ryanair.com">
-        </div>
+                <div class="full-width">
+                    <label>Website / Buchungs-Link (optional):</label>
+                    <input type="url" id="webLink" placeholder="https://...">
+                </div>
 
-        <div style="margin-top: 12px;">
-            <label style="font-weight:600; font-size:0.9rem;">Zusätzliche Infos / Notizen:</label>
-            <textarea id="info" rows="3" placeholder="Buchungsnummern, Adressen oder Details..."></textarea>
+                <div class="full-width">
+                    <label>Notizen & Details:</label>
+                    <textarea id="info" rows="3" placeholder="Buchungsnummern, Adressen, etc..."></textarea>
+                </div>
+            </div>
+            <input type="hidden" id="editId" value="">
+            <button id="submitBtn" class="btn-add" onclick="handleFormSubmit()">Speichern</button>
         </div>
-        <input type="hidden" id="editId" value="">
-        <button id="submitBtn" class="btn-add" onclick="handleFormSubmit()">Hinzufügen</button>
     </div>
+
+    <!-- LISTE -->
+    <div class="container" style="background: transparent; box-shadow: none; padding: 0;">
+        <h3 style="font-size:1.1rem; margin-left: 4px; margin-bottom: 10px;">📋 Reise-Ablauf</h3>
+        <div id="list"></div>
+    </div>
+
+    <!-- SCHWEBENDER SMARTPHONE-BUTTON -->
+    <button class="fab" onclick="openFormFloating()">➕ Eintrag</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -179,8 +212,8 @@
         };
 
         const storageKey = 'urlaubsApp_v3'; 
-        var map = L.map('map').setView([53.4, -7.9], 7);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        var map = L.map('map').setView([53.4, -7.9], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
         var markers = L.featureGroup().addTo(map);
 
         let bookings = JSON.parse(localStorage.getItem(storageKey)) || [];
@@ -207,6 +240,25 @@
             let trimmed = url.trim();
             if (trimmed && !/^https?:\/\//i.test(trimmed)) { return "https://" + trimmed; }
             return trimmed;
+        }
+
+        function toggleFormPanel() {
+            const panel = document.getElementById('formPanel');
+            const chevron = document.getElementById('formChevron');
+            if(panel.style.display === 'block') {
+                panel.style.display = 'none';
+                chevron.innerText = '🔽';
+            } else {
+                panel.style.display = 'block';
+                chevron.innerText = '🔼';
+            }
+        }
+
+        function openFormFloating() {
+            const panel = document.getElementById('formPanel');
+            document.getElementById('formChevron').innerText = '🔼';
+            panel.style.display = 'block';
+            document.getElementById('inputFormContainer').scrollIntoView({ behavior: 'smooth' });
         }
 
         function handleFormSubmit() {
@@ -238,8 +290,8 @@
                 bookings = bookings.map(x => x.id == editId ? { ...b, id: x.id, coords: updatedCoords } : x);
                 document.getElementById('editId').value = "";
                 document.getElementById('submitBtn').className = "btn-add";
-                document.getElementById('submitBtn').innerText = "Hinzufügen";
-                document.getElementById('formTitle').innerText = "Neue Buchung hinzufügen";
+                document.getElementById('submitBtn').innerText = "Speichern";
+                document.getElementById('formTitle').innerText = "➕ Neue Buchung / Eintrag";
             } else {
                 b.id = Date.now();
                 bookings.push(b);
@@ -248,6 +300,8 @@
             localStorage.setItem(storageKey, JSON.stringify(bookings));
             render();
             clearForm();
+            document.getElementById('formPanel').style.display = 'none';
+            document.getElementById('formChevron').innerText = '🔽';
         }
 
         function render() {
@@ -262,7 +316,7 @@
             let sum = 0;
 
             if (bookings.length === 0) {
-                list.innerHTML = '<p style="text-align:center; color:#999; padding: 20px;">Noch keine Buchungen eingetragen.</p>';
+                list.innerHTML = '<p style="text-align:center; color:#999; padding: 20px; background:white; border-radius:12px;">Noch keine Einträge vorhanden.</p>';
             }
 
             let coordCounts = {};
@@ -270,38 +324,40 @@
             bookings.forEach((b, index) => {
                 sum += b.kosten;
                 const label = String.fromCharCode(65 + index);
-                const von = b.anreise ? new Date(b.anreise).toLocaleDateString('de-DE') : '---';
-                const bis = b.abreise ? new Date(b.abreise).toLocaleDateString('de-DE') : '---';
-                const stornoFormat = b.storno ? new Date(b.storno).toLocaleDateString('de-DE') : 'Keins';
+                const von = b.anreise ? new Date(b.anreise).toLocaleDateString('de-DE', {day: 'numeric', month: 'short'}) : '---';
+                const bis = b.abreise ? new Date(b.abreise).toLocaleDateString('de-DE', {day: 'numeric', month: 'short'}) : '---';
+                const stornoFormat = b.storno ? new Date(b.storno).toLocaleDateString('de-DE', {day: 'numeric', month: 'short'}) : null;
 
                 let distHtml = "";
                 if (b.kat === "🏨 Unterkunft") {
                     let nextAccommodation = bookings.slice(index + 1).find(x => x.kat === "🏨 Unterkunft");
                     if (nextAccommodation && b.coords && nextAccommodation.coords) {
                         const km = getDistanceFromLatLonInKm(b.coords[0], b.coords[1], nextAccommodation.coords[0], nextAccommodation.coords[1]);
-                        distHtml = `<div class="dist-badge">🗺️ Strecke bis zur nächsten Unterkunft (${nextAccommodation.ort}): <b>${km} km</b></div>`;
+                        distHtml = `<div class="dist-badge">🗺️ <b>${km} km</b> bis zur nächsten Unterkunft (${nextAccommodation.ort})</div>`;
                     }
                 }
 
-                let linkButtonHtml = b.webLink ? `<a href="${b.webLink}" target="_blank" class="action-btn link-btn">🌐 Link öffnen</a>` : '';
-                let mapsButtonHtml = (b.geoInput && b.geoInput.startsWith('http')) ? `<a href="${b.geoInput}" target="_blank" class="action-btn maps-btn">🗺️ In Maps öffnen</a>` : '';
+                let linkButtonHtml = b.webLink ? `<a href="${b.webLink}" target="_blank" class="action-btn link-btn">🌐 Link</a>` : '';
+                let mapsButtonHtml = (b.geoInput && b.geoInput.startsWith('http')) ? `<a href="${b.geoInput}" target="_blank" class="action-btn maps-btn">📍 Maps</a>` : '';
 
                 list.innerHTML += `<div class="card">
                     <div class="card-content">
-                        <strong style="font-size:1.15rem; color: var(--primary);">[${label}] ${b.kat || 'Buchung'} in ${b.ort}</strong><br>
-                        <span style="font-size:0.95rem; color: var(--text-muted); display:inline-block; margin: 4px 0;">📅 ${von} bis ${bis}</span><br>
-                        <small style="font-size:0.85rem; color:#7f8c8d;">
-                            <span class="cost-info">💰 Kosten: <b style="color:#333;">${b.kosten.toFixed(2)} €</b> | </span>
-                            🛑 Storno bis: ${stornoFormat}
-                        </small>
+                        <div class="card-title-row">
+                            <strong style="font-size:1.05rem; color: var(--primary);">[${label}] ${b.kat || 'Buchung'} - ${b.ort}</strong>
+                        </div>
+                        <div style="font-size:0.9rem; margin: 4px 0; font-weight: 500;">📅 ${von} bis ${bis}</div>
+                        <div style="font-size:0.8rem; color: var(--text-muted);">
+                            💰 <b>${b.kosten.toFixed(2)} €</b> 
+                            ${stornoFormat ? ` | 🛑 Storno: <span style="color:#c0392b; font-weight:600;">${stornoFormat}</span>` : ''}
+                        </div>
                         ${distHtml}
-                        ${b.info ? `<div style="margin-top:10px; background:#f0f3f4; padding:10px; border-radius:6px; font-size:0.88rem; color:#34495e; white-space: pre-wrap; border-left: 3px solid #bdc3c7;">ℹ️ ${b.info}</div>` : ''}
+                        ${b.info ? `<div class="note-box">${b.info}</div>` : ''}
                     </div>
                     <div class="card-actions">
                         ${mapsButtonHtml}
                         ${linkButtonHtml}
-                        <button class="action-btn edit-btn" onclick="startEdit(${b.id})">📝 Bearbeiten</button>
-                        <button class="action-btn del-btn" onclick="del(${b.id})">🗑️ Löschen</button>
+                        <button class="action-btn edit-btn" onclick="startEdit(${b.id})">📝 Ändern</button>
+                        <button class="action-btn del-btn" onclick="del(${b.id})">🗑️ Ex</button>
                     </div>
                 </div>`;
 
@@ -311,7 +367,7 @@
                 if (coordCounts[coordKey]) {
                     const count = coordCounts[coordKey];
                     const angle = count * (Math.PI / 4); 
-                    const radius = 0.003; 
+                    const radius = 0.004; 
                     markerCoords[0] += Math.sin(angle) * radius;
                     markerCoords[1] += Math.cos(angle) * radius;
                     coordCounts[coordKey]++;
@@ -319,23 +375,22 @@
                     coordCounts[coordKey] = 1;
                 }
 
-                let popupContent = `<b>[${label}] ${b.kat || ''}</b><br>${b.ort}`;
-
+                let popupContent = `<b>[${label}] ${b.ort}</b><br>${b.kat || ''}`;
                 const customIcon = L.divIcon({
                     className: 'custom-marker',
                     html: `${label}`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
                 });
 
                 L.marker(markerCoords, { icon: customIcon }).addTo(markers).bindPopup(popupContent);
             });
 
-            document.getElementById('total').innerText = sum.toFixed(2);
+            document.getElementById('total').innerText = sum.toFixed(2).replace('.', ',');
             if(bookings.length > 0 && markers.getLayers().length > 0) {
-                map.fitBounds(markers.getBounds(), {padding: [40, 40]});
+                map.fitBounds(markers.getBounds(), {padding: [30, 30]});
             } else {
-                map.setView([53.4, -7.9], 7);
+                map.setView([53.4, -7.9], 6);
             }
         }
 
@@ -352,10 +407,12 @@
             document.getElementById('webLink').value = target.webLink || '';
             document.getElementById('info').value = target.info || '';
             document.getElementById('editId').value = id;
+            
             document.getElementById('submitBtn').className = "btn-edit-mode";
             document.getElementById('submitBtn').innerText = "Änderungen speichern";
             document.getElementById('formTitle').innerText = "📝 Eintrag bearbeiten";
-            document.getElementById('submitBtn').scrollIntoView({ behavior: 'smooth' });
+            
+            openFormFloating();
         }
 
         function del(id) {
@@ -371,6 +428,10 @@
             document.getElementById('abreise').value = ''; document.getElementById('kosten').value = '';
             document.getElementById('storno').value = ''; document.getElementById('info').value = '';
             document.getElementById('geoInput').value = ''; document.getElementById('webLink').value = '';
+            document.getElementById('editId').value = '';
+            document.getElementById('submitBtn').className = "btn-add";
+            document.getElementById('submitBtn').innerText = "Speichern";
+            document.getElementById('formTitle').innerText = "➕ Neue Buchung / Eintrag";
         }
 
         function toggleMapSize() {
@@ -379,25 +440,17 @@
             document.getElementById('mapToggleBtn').innerText = wrapper.classList.contains('maximized') ? "❌" : "🔍";
             setTimeout(() => { map.invalidateSize(); }, 300);
         }
+        
         function toggleSettings() {
             const panel = document.getElementById('settingsPanel');
             panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
         
-        // KORRIGIERT: Generiert nun dynamisch das Format YYYYMMDD_HHMM für den Dateinamen
         function exportData() {
             const data = localStorage.getItem(storageKey);
             if(!data || data === "[]") { alert("Keine Daten vorhanden."); return; }
-            
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            
-            const timestamp = `${year}${month}${day}_${hours}${minutes}`;
-            
+            const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
             const blob = new Blob([data], {type: 'text/plain'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
